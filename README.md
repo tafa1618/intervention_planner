@@ -97,24 +97,28 @@ Exemples de règles métier :
 
 ---
 
-## 🛠️ Technologies utilisées
+##Frontend : Next.js (React) + Tailwind CSS (pour le design).
 
-### Backend
-- Python
-- FastAPI
-- SQLAlchemy
-- PostgreSQL + PostGIS
-- Pandas (imports Excel)
+Composants UI : shadcn/ui (indispensable pour avoir des tableaux et des cartes magnifiques rapidement).
 
-### Frontend
-- React
-- TypeScript
-- Leaflet
-- Vite
+Cartographie : React Leaflet ou Mapbox.
+
+Backend (API) : FastAPI (Python)
+
+### Architecture Agent Ready
+/Intervention-planner
+├── /frontend (Next.js)
+│   ├── /components       # Carte, Tableaux des machines, Sidebar
+│   ├── /hooks            # Logique de récupération des données
+│   └── /lib              # 
+├── /backend (FastAPI)
+│   ├── main.py           # Points d'entrée API
+│   ├── processor.py      # Création de la base de donnée, gestion de l'import, logique Upsert
+│   └── optimizer.py      # Algorithme de regroupement (Clustering)
+└── global_rules.md       # Tes instructions pour Antigravity
 
 ### Environnement
-- GitHub Codespaces
-- Docker / docker-compose
+-
 
 ---
 
