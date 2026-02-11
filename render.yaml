@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: intervention-planner-backend
+    env: docker
+    rootDir: backend # This ensures the build runs inside the backend directory
+    plan: free # Change this if you need more resources
+    branch: main # Ensuring it builds from the main branch
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Do not commit sensitive values; configure in Render Dashboard
