@@ -2,7 +2,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Machine } from '@/lib/mock-data'
+import { Machine } from '@/lib/types'
 
 const LeafletMap = dynamic(
     () => import('./LeafletMap'),

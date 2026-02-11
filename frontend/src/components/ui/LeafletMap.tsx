@@ -3,7 +3,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Machine } from '@/lib/mock-data';
+import { Machine } from '@/lib/types';
 import L from 'leaflet';
 
 // Fix for default marker icon in Next.js/Webpack
@@ -11,17 +11,18 @@ const iconUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png';
 const iconRetinaUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png';
 const shadowUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png';
 
-const DefaultIcon = L.icon({
-    iconUrl,
-    iconRetinaUrl,
-    shadowUrl,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
+const createIcon = (color: string) => L.divIcon({
+    className: 'custom-icon',
+    html: `<div style="background-color: ${color}; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [15, 15],
+    iconAnchor: [7, 7],
+    popupAnchor: [0, -10]
 });
 
-L.Marker.prototype.options.icon = DefaultIcon;
+const GreenIcon = createIcon('#22c55e');
+const OrangeIcon = createIcon('#f97316');
+const RedIcon = createIcon('#ef4444');
+
 
 interface MapProps {
     machines: Machine[];
@@ -37,7 +38,15 @@ const LeafletMap = ({ machines, center = [14.4974, -14.4524], zoom = 7 }: MapPro
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {machines.map((machine) => (
-                <Marker key={machine.id} position={[machine.location.lat, machine.location.lng]}>
+                <Marker
+                    key={machine.id}
+                    position={[machine.location.lat, machine.location.lng]}
+                    icon={
+                        machine.status === 'operational' ? GreenIcon :
+                            machine.status === 'critical' ? RedIcon :
+                                OrangeIcon
+                    }
+                >
                     <Popup>
                         <div className="p-2 min-w-[200px]">
                             <h3 className="font-bold text-lg text-cat-black">{machine.serialNumber}</h3>
@@ -46,10 +55,10 @@ const LeafletMap = ({ machines, center = [14.4974, -14.4524], zoom = 7 }: MapPro
 
                             <div className="border-t pt-2 mt-1">
                                 <span className={`text-xs px-2 py-1 rounded-full font-bold ${machine.status === 'operational' ? 'bg-green-100 text-green-800' :
-                                    machine.status === 'breakdown' ? 'bg-red-100 text-red-800' :
+                                    machine.status === 'critical' ? 'bg-red-100 text-red-800' :
                                         'bg-orange-100 text-orange-800'
                                     }`}>
-                                    {machine.status.toUpperCase()}
+                                    {machine.status === 'critical' ? 'PRIORITAIRE' : machine.status === 'operational' ? 'OPERATIONNEL' : 'MAINTENANCE PREVUE'}
                                 </span>
                             </div>
 

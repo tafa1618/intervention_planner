@@ -1,20 +1,30 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Map from '@/components/ui/Map';
-import { MOCK_MACHINES, Machine } from '@/lib/mock-data';
-import { Search, MessageSquare, MapPin, Settings, LogOut, Send } from 'lucide-react';
+import { Machine } from '@/lib/types';
+import { fetchMachines } from '@/lib/api';
+import { Search, MessageSquare, MapPin, Settings, LogOut, Send, Trash2 } from 'lucide-react';
 
 export default function Dashboard() {
     const router = useRouter();
-    const [machines, setMachines] = useState<Machine[]>(MOCK_MACHINES);
+    const [machines, setMachines] = useState<Machine[]>([]);
+    const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([
         { role: 'assistant', text: 'Bonjour ! Je suis votre assistant de tournée. Où devez-vous intervenir aujourd\'hui ? (ex: "Client GCO" ou "Dakar")' }
     ]);
     const [input, setInput] = useState('');
     const [user, setUser] = useState<{ name: string, email: string } | null>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const handleSearchClick = () => {
+        if (inputRef.current) {
+            inputRef.current.focus();
+            setMessages(prev => [...prev, { role: 'assistant', text: "Je vous écoute. Tapez un nom de client ou un numéro de série." }]);
+        }
+    };
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -25,44 +35,94 @@ export default function Dashboard() {
         }
     }, [router]);
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    useEffect(() => {
+        async function loadData() {
+            try {
+                const data = await fetchMachines();
+                setMachines(data);
+            } catch (error) {
+                console.error("Failed to load machines", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadData();
+    }, []);
+
+    const handleClearChat = async () => {
+        setMessages([{ role: 'assistant', text: 'Historique effacé. Carte réinitialisée.' }]);
+        setLoading(true);
+        try {
+            const data = await fetchMachines();
+            setMachines(data);
+        } catch (error) {
+            console.error("Failed to reset map", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim()) return;
 
-        // Add user message
-        const newMessages = [...messages, { role: 'user', text: input } as const];
-        setMessages(newMessages);
-        const query = input.toLowerCase();
+        const userText = input;
+        setMessages(prev => [...prev, { role: 'user', text: userText }]);
         setInput('');
 
-        // Mock AI Logic
-        setTimeout(() => {
-            let responseText = '';
-            let filteredMachines = MOCK_MACHINES;
+        try {
+            // Call API with search term
+            const results = await fetchMachines(userText);
+            setMachines(results);
 
-            if (query.includes('gco') || query.includes('grande côte')) {
-                filteredMachines = MOCK_MACHINES.filter(m => m.client.includes('GCO'));
-                responseText = `J'ai trouvé ${filteredMachines.length} machines pour le client GCO. Je les ai mises en évidence sur la carte. Voulez-vous optimiser la tournée pour inclure les inspections proches ?`;
-            } else if (query.includes('sabodala') || query.includes('kedougou')) {
-                filteredMachines = MOCK_MACHINES.filter(m => m.client.includes('Sabodala'));
-                responseText = `Zone Sabodala isolée. 2 machines détectées dont 1 en panne. C'est un déplacement long, je suggère de grouper avec les inspections PSSR du mois prochain.`;
+            const count = results.length;
+            const criticalMachines = results.filter(m => m.status === 'critical');
+            const maintenanceCount = results.filter(m => m.status === 'maintenance').length;
+            const operationalCount = results.filter(m => m.status === 'operational').length;
+
+            let responseText = `Résultat pour "${userText}" : ${count} machine(s) trouvée(s).`;
+
+            if (count > 0) {
+                if (criticalMachines.length > 0) {
+                    responseText += `\n\n🔴 ${criticalMachines.length} ACTION(S) REQUISE(S) :`;
+                    criticalMachines.slice(0, 5).forEach(m => {
+                        const interventions = m.pendingInterventions.filter(i => i.priority === 'HIGH' || i.status === 'PENDING').map(i => i.description).join(', ');
+                        responseText += `\n- ${m.serialNumber} : ${interventions || 'Intervention critique'}`;
+                    });
+                    if (criticalMachines.length > 5) responseText += `\n...et ${criticalMachines.length - 5} autres.`;
+                }
+
+                if (maintenanceCount > 0) responseText += `\n\n🟠 ${maintenanceCount} Maintenance(s) Prévue(s)`;
+                if (operationalCount > 0) responseText += `\n🟢 ${operationalCount} Opérationnelle(s)`;
+
+                const noLocation = results.filter(m => m.location.lat === 0 && m.location.lng === 0).length;
+                if (noLocation > 0) {
+                    responseText += `\n⚠️ ${noLocation} machine(s) sans position GPS.`;
+                }
             } else {
-                responseText = "Je ne suis pas sûr de comprendre. Essayez de taper un nom de client comme 'GCO' ou 'Sabodala'.";
+                responseText += " Aucune correspondance.";
             }
 
             setMessages(prev => [...prev, { role: 'assistant', text: responseText }]);
-            // In a real app, we would zoom to these machines. For now, we update the map data if needed or just keep all.
-            // Let's filter the map for visual feedback
-            if (filteredMachines.length > 0 && filteredMachines.length < MOCK_MACHINES.length) {
-                setMachines(filteredMachines);
-            } else {
-                setMachines(MOCK_MACHINES); // Reset if clear or confusing
-            }
 
-        }, 1000);
+        } catch (error) {
+            console.error(error);
+            setMessages(prev => [...prev, { role: 'assistant', text: "Erreur lors de la recherche." }]);
+        }
     };
 
     if (!user) return null;
+
+    const handleReset = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchMachines();
+            setMachines(data);
+            setMessages(prev => [...prev, { role: 'assistant', text: "Affichage de la vue globale (toutes les machines)." }]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
@@ -74,8 +134,8 @@ export default function Dashboard() {
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
-                    <NavItem icon={<MapPin size={20} />} label="Carte Globale" active />
-                    <NavItem icon={<Search size={20} />} label="Recherche Avancée" />
+                    <NavItem icon={<MapPin size={20} />} label="Carte Globale" active onClick={handleReset} />
+                    <NavItem icon={<Search size={20} />} label="Recherche Avancée" onClick={handleSearchClick} />
                     <NavItem icon={<Settings size={20} />} label="Paramètres" />
                 </nav>
 
@@ -97,6 +157,8 @@ export default function Dashboard() {
                     </button>
                 </div>
             </aside>
+            {/* ... rest of existing code ... */}
+
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col relative">
@@ -115,20 +177,25 @@ export default function Dashboard() {
 
                         {/* Floating Legend / Info */}
                         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg z-[400] max-w-xs">
-                            <h3 className="font-bold text-sm mb-2 text-gray-800">Légende</h3>
-                            <div className="space-y-2 text-xs">
-                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500"></span> Opérationnel</div>
-                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-500"></span> Maintenance Prévue</div>
-                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500"></span> En Panne (Urgent)</div>
+                            <h3 className="font-bold text-sm mb-2 text-gray-900">Légende</h3>
+                            <div className="space-y-2 text-xs text-gray-800">
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500 border border-white shadow-sm"></span> Opérationnel</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-sm"></span> Maintenance Prévue</div>
+                                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm"></span> Action Requise (Urgent)</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Right Panel: Assistant / Chat */}
                     <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl z-10">
-                        <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
-                            <MessageSquare size={18} className="text-cat-yellow fill-cat-black" />
-                            <h3 className="font-bold text-gray-800">Assistant de Tournée</h3>
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <div className="flex items-center gap-2">
+                                <MessageSquare size={18} className="text-cat-yellow fill-cat-black" />
+                                <h3 className="font-bold text-gray-800">Assistant de Tournée</h3>
+                            </div>
+                            <button onClick={handleClearChat} className="text-gray-400 hover:text-red-500 transition" title="Effacer l'historique">
+                                <Trash2 size={16} />
+                            </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
@@ -147,9 +214,10 @@ export default function Dashboard() {
                         <div className="p-4 bg-white border-t border-gray-200">
                             <form onSubmit={handleSendMessage} className="relative">
                                 <input
+                                    ref={inputRef}
                                     type="text"
                                     className="w-full pl-4 pr-10 py-3 bg-gray-100 border-none rounded-full text-sm focus:ring-2 focus:ring-cat-yellow outline-none transition text-gray-900"
-                                    placeholder="Écrivez votre demande..."
+                                    placeholder="Rechercher (Client, Série) ou discuter..."
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                 />
@@ -168,9 +236,9 @@ export default function Dashboard() {
     );
 }
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
     return (
-        <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition ${active
+        <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition ${active
             ? 'bg-cat-yellow text-cat-black font-bold'
             : 'text-gray-400 hover:bg-gray-800 hover:text-white'
             }`}>
