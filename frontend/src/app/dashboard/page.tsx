@@ -20,6 +20,18 @@ export default function Dashboard() {
     const [user, setUser] = useState<{ name: string, email: string } | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        // block: 'nearest' ensures we don't scroll the parent containers
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => scrollToBottom(), 100); // Small delay to ensure render
+        return () => clearTimeout(timeoutId);
+    }, [messages]);
+
     // Map State
     const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
     const [mapZoom, setMapZoom] = useState<number | undefined>(undefined);
@@ -37,11 +49,16 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
+        try {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) {
+                router.push('/login');
+            } else {
+                setUser(JSON.parse(storedUser));
+            }
+        } catch (e) {
+            console.error("Auth Error:", e);
             router.push('/login');
-        } else {
-            setUser(JSON.parse(storedUser));
         }
     }, [router]);
 
@@ -56,8 +73,22 @@ export default function Dashboard() {
                 setLoading(false);
             }
         }
-        loadData();
-    }, []);
+        if (user) { // Only load data if user is authenticated
+            loadData();
+        }
+    }, [user]);
+
+    // Show loading state while checking user
+    if (!user) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-100">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cat-yellow mx-auto mb-4"></div>
+                    <p className="text-gray-600">Chargement de la session...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleClearChat = async () => {
         setMessages([{ role: 'assistant', text: 'Historique effacé. Carte réinitialisée.' }]);
@@ -96,8 +127,14 @@ export default function Dashboard() {
                 if (criticalMachines.length > 0) {
                     responseText += `\n\n🔴 ${criticalMachines.length} ACTION(S) REQUISE(S) :`;
                     criticalMachines.slice(0, 5).forEach(m => {
-                        const interventions = m.pendingInterventions.filter(i => i.priority === 'HIGH' || i.status === 'PENDING').map(i => i.description).join(', ');
-                        responseText += `\n- ${m.serialNumber} : ${interventions || 'Intervention critique'}`;
+                        const interventions = m.pendingInterventions
+                            .filter(i => i.priority === 'HIGH' || i.status === 'PENDING')
+                            .map(i => {
+                                const desc = i.description || 'Intervention critique';
+                                return desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+                            })
+                            .join(', ');
+                        responseText += `\n- ${m.serialNumber} : ${interventions}`;
                     });
                     if (criticalMachines.length > 5) responseText += `\n...et ${criticalMachines.length - 5} autres.`;
                 }
@@ -121,7 +158,8 @@ export default function Dashboard() {
         }
     };
 
-    if (!user) return null;
+    // User check handled at top with loader
+    // if (!user) return null;
 
     const handleReset = async () => {
         setLoading(true);
@@ -183,8 +221,12 @@ export default function Dashboard() {
                 <div className="flex-1 flex relative">
                     {/* Map Area */}
                     <div className="flex-1 relative bg-gray-200">
-                        <GlobalSearch onLocate={handleLocate} />
                         <Map machines={machines} center={mapCenter} zoom={mapZoom} />
+
+                        {/* Global Search Overlay */}
+                        <div className="absolute top-4 left-16 z-[1000]">
+                            <GlobalSearch onLocate={handleLocate} />
+                        </div>
 
                         {/* Floating Legend / Info */}
                         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg z-[400] max-w-xs">
@@ -198,8 +240,8 @@ export default function Dashboard() {
                     </div>
 
                     {/* Right Panel: Assistant / Chat */}
-                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl z-10">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl z-10 h-full">
+                        <div className="shrink-0 p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
                             <div className="flex items-center gap-2">
                                 <MessageSquare size={18} className="text-cat-yellow fill-cat-black" />
                                 <h3 className="font-bold text-gray-800">Assistant de Tournée</h3>
@@ -209,7 +251,7 @@ export default function Dashboard() {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
+                        <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4 bg-gray-50/50">
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] p-3 rounded-lg text-sm shadow-sm ${msg.role === 'user'
@@ -220,9 +262,11 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             ))}
+                            <div ref={messagesEndRef} />
+
                         </div>
 
-                        <div className="p-4 bg-white border-t border-gray-200">
+                        <div className="shrink-0 p-4 bg-white border-t border-gray-200">
                             <form onSubmit={handleSendMessage} className="relative">
                                 <input
                                     ref={inputRef}
