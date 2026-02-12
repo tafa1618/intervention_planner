@@ -13,9 +13,11 @@ const LeafletMap = dynamic(
 )
 
 interface MapProps {
-    machines: Machine[]
+    machines: Machine[];
+    center?: [number, number];
+    zoom?: number;
 }
 
-export default function Map({ machines }: MapProps) {
-    return <LeafletMap machines={machines} />
+export default function Map({ machines, center, zoom }: MapProps) {
+    return <LeafletMap machines={machines} center={center} zoom={zoom} />
 }

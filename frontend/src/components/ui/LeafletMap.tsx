@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Machine } from '@/lib/types';
 import L from 'leaflet';
+import MapController from './MapController';
 
 // Fix for default marker icon in Next.js/Webpack
 const iconUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png';
@@ -37,6 +38,7 @@ const LeafletMap = ({ machines, center = [14.4974, -14.4524], zoom = 7 }: MapPro
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapController center={center} zoom={zoom} />
             {machines.map((machine) => (
                 <Marker
                     key={machine.id}

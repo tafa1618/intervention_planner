@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Map from '@/components/ui/Map';
+import GlobalSearch from '@/components/GlobalSearch';
 import { Machine } from '@/lib/types';
 import { fetchMachines } from '@/lib/api';
 import { Search, MessageSquare, MapPin, Settings, LogOut, Send, Trash2 } from 'lucide-react';
@@ -18,6 +19,15 @@ export default function Dashboard() {
     const [input, setInput] = useState('');
     const [user, setUser] = useState<{ name: string, email: string } | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // Map State
+    const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
+    const [mapZoom, setMapZoom] = useState<number | undefined>(undefined);
+
+    const handleLocate = (lat: number, lng: number) => {
+        setMapCenter([lat, lng]);
+        setMapZoom(12); // Zoom in when locating
+    };
 
     const handleSearchClick = () => {
         if (inputRef.current) {
@@ -173,7 +183,8 @@ export default function Dashboard() {
                 <div className="flex-1 flex relative">
                     {/* Map Area */}
                     <div className="flex-1 relative bg-gray-200">
-                        <Map machines={machines} />
+                        <GlobalSearch onLocate={handleLocate} />
+                        <Map machines={machines} center={mapCenter} zoom={mapZoom} />
 
                         {/* Floating Legend / Info */}
                         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg z-[400] max-w-xs">
