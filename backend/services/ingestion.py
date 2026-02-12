@@ -399,11 +399,67 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     except Exception as e:
             print(f"Error processing Inspection Rate: {e}")
 
+    # Process Remote Service
+    remote_service_processed = 0
+    try:
+        from models import RemoteService
+        
+        remote_df = pd.read_excel(file_path, sheet_name='Remote Service')
+        print(f"Found Remote Service sheet with {len(remote_df)} rows.")
+
+        remote_inserts = []
+        serials_in_sheet = set()
+        
+        for _, row in remote_df.iterrows():
+            serial = row.get('S/N')
+            if pd.isna(serial):
+                continue
+            serial = str(serial).strip()
+            
+            # Upsert based on existing machines?
+            # Ideally we only insert if machine exists, OR we accept it might fail FK if not exists.
+            # Using same logic as others: filter by existing serials if possible, or trust FK.
+            # Let's trust FK insert but we need to handle duplicates/updates?
+            
+            # For RemoteService, it's one-to-one with Machine (unique serial_number).
+            # So duplicate S/N in sheet -> take last?
+            
+            if serial in serials_in_sheet:
+                 continue # Skip duplicates in file?
+            serials_in_sheet.add(serial)
+
+            remote_data = {
+                "serial_number": serial,
+                "flash_update": str(row.get('Flash Update')) if not pd.isna(row.get('Flash Update')) else None
+            }
+            remote_inserts.append(remote_data)
+
+        if remote_inserts:
+             print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
+             
+             # Use on_conflict logic.
+             # Insert or Update.
+             stmt = insert(RemoteService).values(remote_inserts)
+             stmt = stmt.on_conflict_do_update(
+                 index_elements=['serial_number'],
+                 set_=dict(
+                     flash_update=stmt.excluded.flash_update
+                 )
+             )
+             await session.execute(stmt)
+             remote_service_processed = len(remote_inserts)
+
+    except ValueError:
+        print("Remote Service sheet not found.")
+    except Exception as e:
+        print(f"Error processing Remote Service: {e}")
+
     return {
         "clients": clients_processed, 
         "machines": machines_processed, 
         "cvaf": cvaf_processed,
         "pssr": pssr_processed,
         "suivi_ps": suivi_ps_processed,
-        "inspection_rate": inspection_processed
+        "inspection_rate": inspection_processed,
+        "remote_service": remote_service_processed
     }

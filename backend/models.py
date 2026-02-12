@@ -134,3 +134,13 @@ class Intervention(Base):
 
 # Update Machine relationship
 Machine.interventions = relationship("Intervention", back_populates="machine", cascade="all, delete-orphan")
+Machine.remote_service = relationship("RemoteService", back_populates="machine", uselist=False, cascade="all, delete-orphan")
+
+class RemoteService(Base):
+    __tablename__ = "remote_service"
+
+    id = Column(Integer, primary_key=True, index=True)
+    serial_number = Column(String, ForeignKey("machines.serial_number"), unique=True, index=True)
+    flash_update = Column(String, nullable=True) # '0/1' status
+
+    machine = relationship("Machine", back_populates="remote_service")
