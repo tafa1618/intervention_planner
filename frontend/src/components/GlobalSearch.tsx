@@ -50,7 +50,7 @@ export default function GlobalSearch({ onLocate }: GlobalSearchProps) {
     };
 
     return (
-        <div className="absolute top-4 left-16 z-[1000] w-96 font-sans">
+        <div className="w-96 font-sans">
             <div className="relative">
                 <input
                     type="text"

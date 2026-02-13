@@ -17,7 +17,7 @@ export default function Dashboard() {
         { role: 'assistant', text: 'Bonjour ! Je suis votre assistant de tournée. Où devez-vous intervenir aujourd\'hui ? (ex: "Client GCO" ou "Dakar")' }
     ]);
     const [input, setInput] = useState('');
-    const [user, setUser] = useState<{ name: string, email: string } | null>(null);
+    const [user, setUser] = useState<{ name: string, email: string, role?: string } | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -184,7 +184,11 @@ export default function Dashboard() {
                 <nav className="flex-1 p-4 space-y-2">
                     <NavItem icon={<MapPin size={20} />} label="Carte Globale" active onClick={handleReset} />
                     <NavItem icon={<Search size={20} />} label="Recherche Avancée" onClick={handleSearchClick} />
-                    <NavItem icon={<Settings size={20} />} label="Paramètres" />
+                    <NavItem
+                        icon={<Settings size={20} />}
+                        label="Admin / Paramètres"
+                        onClick={() => user?.role === 'admin' ? router.push('/admin') : alert("Accès réservé aux administrateurs.")}
+                    />
                 </nav>
 
                 <div className="p-4 border-t border-gray-800">

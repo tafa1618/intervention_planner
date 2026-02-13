@@ -8,22 +8,43 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email.endsWith('@neemba.com')) {
-            setError('Accès restreint aux employés Neemba uniquement (@neemba.com)');
-            return;
-        }
-        if (password.length < 4) {
-            setError('Mot de passe trop court');
-            return;
-        }
+        setError('');
+        setLoading(true);
 
-        // Mock successful login
-        localStorage.setItem('user', JSON.stringify({ email, role: 'Planner' }));
-        router.push('/dashboard');
+        try {
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            const res = await fetch('http://localhost:8001/auth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || 'Erreur de connexion');
+            }
+
+            const data = await res.json();
+
+            // Store token and user info
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            // Redirect based on role? For now just dashboard, but admin might want /admin
+            router.push('/dashboard');
+
+        } catch (err: any) {
+            setError(err.message || 'Impossible de se connecter au serveur');
+            setLoading(false); // Only stop loading on error (on success we redirect)
+        }
     };
 
     return (
@@ -67,10 +88,11 @@ export default function LoginPage() {
 
                     <button
                         type="submit"
-                        className="w-full bg-cat-black text-white font-bold py-3 px-4 rounded hover:bg-gray-800 transition duration-200 flex items-center justify-center gap-2"
+                        disabled={loading}
+                        className={`w-full font-bold py-3 px-4 rounded transition duration-200 flex items-center justify-center gap-2 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-cat-black text-white hover:bg-gray-800'}`}
                     >
-                        SE CONNECTER
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                        {loading ? 'CONNEXION...' : 'SE CONNECTER'}
+                        {!loading && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>}
                     </button>
                 </form>
 

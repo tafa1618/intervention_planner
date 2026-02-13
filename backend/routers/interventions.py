@@ -24,7 +24,7 @@ class InterventionResponse(BaseModel):
     date_created: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.post("/generate")
 async def generate_intervention_plan(db: AsyncSession = Depends(get_db)):

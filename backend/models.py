@@ -144,3 +144,13 @@ class RemoteService(Base):
     flash_update = Column(String, nullable=True) # '0/1' status
 
     machine = relationship("Machine", back_populates="remote_service")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    full_name = Column(String, nullable=True)
+    password_hash = Column(String)
+    role = Column(String, default="user") # 'admin' or 'user' (read-only)
+    is_active = Column(Integer, default=1) # 1=Active, 0=Inactive

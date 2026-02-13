@@ -23,7 +23,7 @@ class InterventionDTO(BaseModel):
     date_created: Any # datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class LocationDTO(BaseModel):
     lat: float
@@ -40,7 +40,7 @@ class MachineDTO(BaseModel):
     pendingInterventions: List[InterventionDTO] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProgramStatusDTO(BaseModel):
     visionLink: bool
@@ -59,7 +59,7 @@ class MachineContextDTO(BaseModel):
     programs: ProgramStatusDTO
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.get("/global-search", response_model=List[MachineContextDTO])
 async def search_global_context(

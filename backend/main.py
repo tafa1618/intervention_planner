@@ -11,6 +11,9 @@ app = FastAPI()
 
 app.include_router(interventions.router)
 app.include_router(machines.router)
+from routers import auth, admin
+app.include_router(auth.router)
+app.include_router(admin.router)
 
 app.add_middleware(
     CORSMiddleware,
