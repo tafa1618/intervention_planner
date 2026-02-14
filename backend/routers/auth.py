@@ -11,7 +11,10 @@ from database import get_db
 from models import User
 
 # --- Configuration ---
-SECRET_KEY = "CHANGE_THIS_TO_A_SECURE_SECRET_KEY_IN_PROD" # TODO: Move to env var
+import os
+
+# --- Configuration ---
+SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_TO_A_SECURE_SECRET_KEY_IN_PROD")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
 
