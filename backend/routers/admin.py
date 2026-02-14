@@ -1,17 +1,49 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, text
-from database import get_db
+from database import get_db, AsyncSessionLocal
 from models import User, Machine, Client, RemoteService, CVAF, SuiviPS, InspectionRate
 from routers.auth import get_current_admin_user, get_password_hash
 from pydantic import BaseModel
 from typing import List
+import shutil
+import os
+from services.ingestion import ingest_programmes_data
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
     dependencies=[Depends(get_current_admin_user)]
 )
+
+@router.post("/upload")
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .xlsx files are allowed")
+
+    file_location = f"data/{file.filename}"
+    
+    # Ensure data directory exists
+    os.makedirs("data", exist_ok=True)
+
+    try:
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
+
+    # Trigger ingestion
+    try:
+        # We need an async session for the ingestion service
+        async with AsyncSessionLocal() as async_session:
+             result = await ingest_programmes_data(file_location, async_session)
+             await async_session.commit()
+             
+        return {"message": "File uploaded and processed successfully", "details": result}
+    except Exception as e:
+        print(f"Ingestion error: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
 
 # --- Schemas ---
 class UserCreate(BaseModel):

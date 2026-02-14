@@ -146,6 +146,38 @@ export default function AdminPage() {
         setMessage('');
     };
 
+    const handleUpload = async (file: File) => {
+        setLoading(true);
+        setMessage('');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:8001/admin/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.detail || "Erreur lors de l'upload");
+            }
+
+            setMessage('Fichier uploadé et traité avec succès !');
+            fetchStats(); // Refresh stats
+        } catch (error: any) {
+            setMessage(`Erreur: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
@@ -338,12 +370,43 @@ export default function AdminPage() {
                             <Upload className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-xl font-bold text-gray-800 mb-2">Mise à jour des données</h3>
                             <p className="text-gray-500 mb-6">
-                                Pour mettre à jour la base de données, utilisez le script d'ingestion ou l'interface d'upload.
-                                <br />(Bientôt disponible ici directement).
+                                Sélectionnez le fichier <strong>Programmes.xlsx</strong> pour mettre à jour la base de données.
+                                <br />Le traitement peut prendre quelques minutes.
                             </p>
-                            <button className="bg-cat-yellow text-cat-black font-bold py-2 px-6 rounded-lg hover:bg-yellow-500 transition">
-                                Uploader un fichier
-                            </button>
+
+                            <div className="max-w-md mx-auto">
+                                <label className="block mb-4 cursor-pointer">
+                                    <span className="sr-only">Choisir un fichier</span>
+                                    <input
+                                        type="file"
+                                        accept=".xlsx"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleUpload(file);
+                                        }}
+                                        disabled={loading}
+                                        className="block w-full text-sm text-gray-500
+                                            file:mr-4 file:py-2 file:px-4
+                                            file:rounded-full file:border-0
+                                            file:text-sm file:font-semibold
+                                            file:bg-cat-yellow file:text-cat-black
+                                            hover:file:bg-yellow-400
+                                        "
+                                    />
+                                </label>
+
+                                {loading && (
+                                    <div className="text-blue-600 font-bold animate-pulse">
+                                        Upload et ingestion en cours...
+                                    </div>
+                                )}
+
+                                {message && (
+                                    <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${message.includes('succès') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {message}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
