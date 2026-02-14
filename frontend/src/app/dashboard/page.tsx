@@ -215,18 +215,18 @@ export default function Dashboard() {
 
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col relative">
+            <main className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
                 {/* Header - could be breadcrumbs or global actions */}
-                <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm z-10 justify-between">
+                <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm z-10 justify-between shrink-0">
                     <h2 className="font-bold text-gray-800">Tableau de Bord - Optimisation</h2>
                     <div className="flex gap-2">
                         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">Système: Opérationnel</span>
                     </div>
                 </header>
 
-                <div className="flex-1 flex relative">
+                <div className="flex-1 flex relative min-h-0 overflow-hidden">
                     {/* Map Area */}
-                    <div className="flex-1 relative bg-gray-200">
+                    <div className="flex-1 relative bg-gray-200 min-h-0 min-w-0">
                         <Map machines={machines} center={mapCenter} zoom={mapZoom} />
 
                         {/* Global Search Overlay */}
@@ -246,7 +246,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Right Panel: Assistant / Chat */}
-                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl z-10 h-full">
+                    <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl z-10 h-full max-h-full">
                         <div className="shrink-0 p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
                             <div className="flex items-center gap-2">
                                 <MessageSquare size={18} className="text-cat-yellow fill-cat-black" />
