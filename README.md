@@ -5,7 +5,7 @@
 Ce projet vise à développer un **outil de géolocalisation des machines** permettant de croiser, sur une carte unique, les informations issues de différents **programmes opérationnels** :
 
 - CVA / CVAF  
-- Inspections obligatoires  
+- Inspection Rate  
 - Product Improvement (PI) & Product Support
 - Données machines et clients  
 
