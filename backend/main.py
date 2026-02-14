@@ -9,6 +9,11 @@ import os
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup_event():
+    # Ensure data directory exists on startup
+    os.makedirs("data", exist_ok=True)
+
 app.include_router(interventions.router)
 app.include_router(machines.router)
 from routers import auth, admin
