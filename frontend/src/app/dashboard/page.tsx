@@ -184,11 +184,13 @@ export default function Dashboard() {
                 <nav className="flex-1 p-4 space-y-2">
                     <NavItem icon={<MapPin size={20} />} label="Carte Globale" active onClick={handleReset} />
                     <NavItem icon={<Search size={20} />} label="Recherche Avancée" onClick={handleSearchClick} />
-                    <NavItem
-                        icon={<Settings size={20} />}
-                        label="Admin / Paramètres"
-                        onClick={() => user?.role === 'admin' ? router.push('/admin') : alert("Accès réservé aux administrateurs.")}
-                    />
+                    {user?.role === 'admin' && (
+                        <NavItem
+                            icon={<Settings size={20} />}
+                            label="Admin / Paramètres"
+                            onClick={() => router.push('/admin')}
+                        />
+                    )}
                 </nav>
 
                 <div className="p-4 border-t border-gray-800">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Database, Upload, LogOut, ArrowLeft, Plus } from 'lucide-react';
+import { Users, Database, Upload, LogOut, ArrowLeft, Plus, Trash2, Pencil } from 'lucide-react';
 
 interface User {
     id: number;
@@ -25,6 +25,7 @@ export default function AdminPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
     const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '' });
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const router = useRouter();
@@ -65,35 +66,84 @@ export default function AdminPage() {
         if (res.ok) setStats(await res.json());
     };
 
-    const handleCreateUser = async (e: React.FormEvent) => {
+    const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setMessage('');
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:8001/admin/users', {
-                method: 'POST',
+            const url = editingUser
+                ? `http://localhost:8001/admin/users/${editingUser.id}`
+                : 'http://localhost:8001/admin/users';
+
+            const method = editingUser ? 'PUT' : 'POST';
+
+            // For update, exclude empty password if not changing it
+            const body: any = { ...newUser, role: 'user' };
+            if (editingUser && !newUser.password) {
+                delete body.password;
+            }
+
+            const res = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ ...newUser, role: 'user' }) // Force role 'user'
+                body: JSON.stringify(body)
             });
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.detail || 'Erreur lors de la création');
+                throw new Error(data.detail || 'Erreur lors de l\'opération');
             }
 
-            setMessage('Utilisateur créé avec succès !');
+            setMessage(editingUser ? 'Utilisateur modifié !' : 'Utilisateur créé avec succès !');
             setNewUser({ email: '', full_name: '', password: '' });
+            setEditingUser(null);
             fetchUsers();
         } catch (err: any) {
             setMessage(`Erreur: ${err.message}`);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleDeleteUser = async (userId: number) => {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:8001/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                fetchUsers();
+            } else {
+                alert("Erreur lors de la suppression");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const startEdit = (user: User) => {
+        setEditingUser(user);
+        setNewUser({
+            email: user.email,
+            full_name: user.full_name,
+            password: '' // Don't fill password
+        });
+        setMessage('');
+    };
+
+    const cancelEdit = () => {
+        setEditingUser(null);
+        setNewUser({ email: '', full_name: '', password: '' });
+        setMessage('');
     };
 
     const handleLogout = () => {
@@ -166,6 +216,7 @@ export default function AdminPage() {
                                             <th className="px-4 py-3">Nom</th>
                                             <th className="px-4 py-3">Email</th>
                                             <th className="px-4 py-3">Rôle</th>
+                                            <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -178,6 +229,16 @@ export default function AdminPage() {
                                                         {u.role}
                                                     </span>
                                                 </td>
+                                                <td className="px-4 py-3 flex gap-2 justify-end">
+                                                    <button onClick={() => startEdit(u)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                    {u.role !== 'admin' && (
+                                                        <button onClick={() => handleDeleteUser(u.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -188,14 +249,14 @@ export default function AdminPage() {
                         {/* Create User Form */}
                         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 h-fit">
                             <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                                <Plus className="w-5 h-5" /> Nouvel Utilisateur
+                                <Plus className="w-5 h-5" /> {editingUser ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
                             </h3>
-                            <form onSubmit={handleCreateUser} className="space-y-4">
+                            <form onSubmit={handleCreateOrUpdateUser} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nom Complet</label>
                                     <input
                                         type="text" required
-                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none text-gray-900 bg-gray-50 placeholder-gray-400"
                                         value={newUser.full_name}
                                         onChange={e => setNewUser({ ...newUser, full_name: e.target.value })}
                                     />
@@ -204,28 +265,42 @@ export default function AdminPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email (@neemba.com)</label>
                                     <input
                                         type="email" required
-                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none text-gray-900 bg-gray-50 placeholder-gray-400"
                                         value={newUser.email}
                                         onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe temporaire</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        {editingUser ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe temporaire'}
+                                    </label>
                                     <input
-                                        type="text" required
-                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none font-mono bg-gray-50"
+                                        type="text"
+                                        required={!editingUser}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cat-yellow outline-none font-mono text-gray-900 bg-gray-50 placeholder-gray-400"
                                         value={newUser.password}
                                         onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                                        placeholder="ex: Neemba2024!"
+                                        placeholder={editingUser ? "Optionnel" : "ex: Neemba2024!"}
                                     />
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-cat-black text-white font-bold py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-50"
-                                >
-                                    {loading ? 'Création...' : 'Créer le compte'}
-                                </button>
+                                <div className="flex gap-2">
+                                    {editingUser && (
+                                        <button
+                                            type="button"
+                                            onClick={cancelEdit}
+                                            className="flex-1 bg-gray-200 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-300 transition"
+                                        >
+                                            Annuler
+                                        </button>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="flex-1 bg-cat-black text-white font-bold py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-50"
+                                    >
+                                        {loading ? 'En cours...' : (editingUser ? 'Mettre à jour' : 'Créer le compte')}
+                                    </button>
+                                </div>
                                 {message && (
                                     <div className={`text-sm p-2 rounded ${message.includes('Erreur') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                                         {message}

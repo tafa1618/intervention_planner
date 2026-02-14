@@ -6,7 +6,7 @@ from services.ingestion import ingest_programmes_data
 async def main():
     async with AsyncSessionLocal() as session:
         print("Starting ingestion...")
-        await ingest_programmes_data("data/Programmes.xlsx", session)
+        await ingest_programmes_data("../data/Programmes.xlsx", session)
         await session.commit()
         print("Ingestion complete.")
 

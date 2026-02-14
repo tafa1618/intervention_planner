@@ -404,53 +404,115 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     try:
         from models import RemoteService
         
-        remote_df = pd.read_excel(file_path, sheet_name='Remote Service')
-        print(f"Found Remote Service sheet with {len(remote_df)} rows.")
+        remote_df = None
+        try:
+            remote_df = pd.read_excel(file_path, sheet_name='Remote Service')
+            print(f"Found Remote Service sheet in main file with {len(remote_df)} rows.")
+        except ValueError:
+            # Fallback to separate file
+            dir_path = os.path.dirname(file_path)
+            # Try a few common names or just the specific one
+            alt_path_1 = os.path.join(dir_path, "Suivi Remote Service.xlsx") # Next to Programmes.xlsx
+            alt_path_2 = "data/Suivi Remote Service.xlsx" # In backend/data
 
-        remote_inserts = []
-        serials_in_sheet = set()
-        
-        for _, row in remote_df.iterrows():
-            serial = row.get('S/N')
-            if pd.isna(serial):
-                continue
-            serial = str(serial).strip()
-            
-            # Upsert based on existing machines?
-            # Ideally we only insert if machine exists, OR we accept it might fail FK if not exists.
-            # Using same logic as others: filter by existing serials if possible, or trust FK.
-            # Let's trust FK insert but we need to handle duplicates/updates?
-            
-            # For RemoteService, it's one-to-one with Machine (unique serial_number).
-            # So duplicate S/N in sheet -> take last?
-            
-            if serial in serials_in_sheet:
-                 continue # Skip duplicates in file?
-            serials_in_sheet.add(serial)
+            if os.path.exists(alt_path_1):
+                print(f"Found separate file: {alt_path_1}")
+                remote_df = pd.read_excel(alt_path_1)
+                print(f"Found {len(remote_df)} rows in separate file (sibling).")
+            elif os.path.exists(alt_path_2):
+                print(f"Found separate file: {alt_path_2}")
+                remote_df = pd.read_excel(alt_path_2)
+                print(f"Found {len(remote_df)} rows in separate file (backend/data).")
+            else:
+                 print(f"Warning: Separate Remote Service file not found at {alt_path_1} or {alt_path_2}")
+                 pass
 
-            remote_data = {
-                "serial_number": serial,
-                "flash_update": str(row.get('Flash Update')) if not pd.isna(row.get('Flash Update')) else None
-            }
-            remote_inserts.append(remote_data)
+        if remote_df is not None:
+            remote_inserts = []
+            serials_in_sheet = set()
+            
+        if remote_df is not None:
+            # 1. Prepare Client Name Map for lookup if needed
+            # We need to fetch clients if we haven't mapped names yet (we only mapped IDs earlier)
+            result = await session.execute(select(Client))
+            all_clients = result.scalars().all()
+            client_name_map = {c.name.strip().lower(): c.id for c in all_clients if c.name}
+            
+            # 2. Identify and Insert New Machines
+            if 'S/N' in remote_df.columns:
+                 if 'Serial Number' in remote_df.columns:
+                     remote_df['S/N'] = remote_df['S/N'].fillna(remote_df['Serial Number'])
+            elif 'Serial Number' in remote_df.columns:
+                 remote_df['S/N'] = remote_df['Serial Number']
 
-        if remote_inserts:
-             print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
-             
-             # Use on_conflict logic.
-             # Insert or Update.
-             stmt = insert(RemoteService).values(remote_inserts)
-             stmt = stmt.on_conflict_do_update(
-                 index_elements=['serial_number'],
-                 set_=dict(
-                     flash_update=stmt.excluded.flash_update
+            new_machines = []
+            
+            # Refresh existing serials to be sure
+            result = await session.execute(select(Machine.serial_number))
+            existing_serials = set(result.scalars().all())
+
+            for _, row in remote_df.iterrows():
+                serial = row.get('S/N')
+                if pd.isna(serial): continue
+                serial = str(serial).strip()
+                
+                if serial not in existing_serials:
+                    # Found a machine in Remote Service that isn't in DB yet
+                    # Let's create it
+                    
+                    # Try to find client
+                    client_id = None
+                    client_name = row.get('Client')
+                    if not pd.isna(client_name):
+                        client_name_clean = str(client_name).strip().lower()
+                        client_id = client_name_map.get(client_name_clean)
+                    
+                    new_machines.append({
+                        "serial_number": serial,
+                        "model": row.get('Product Model'),
+                        "client_id": client_id,
+                        # Add a status or flag? Maybe not needed.
+                    })
+                    existing_serials.add(serial) # Add to set so we don't try to insert twice
+
+            if new_machines:
+                print(f"Creating {len(new_machines)} new machines found in Remote Service file...")
+                # Insert new machines
+                # We use on_conflict_do_nothing just in case of race condition or if it exists
+                stmt = insert(Machine).values(new_machines)
+                stmt = stmt.on_conflict_do_nothing(index_elements=['serial_number'])
+                await session.execute(stmt)
+                
+            # 3. Insert/Update Remote Service Records
+            remote_inserts = []
+            serials_processed = set()
+            
+            for _, row in remote_df.iterrows():
+                serial = row.get('S/N')
+                if pd.isna(serial): continue
+                serial = str(serial).strip()
+                
+                if serial in serials_processed: continue
+                serials_processed.add(serial)
+
+                remote_data = {
+                    "serial_number": serial,
+                    "flash_update": str(row.get('Flash Update')) if not pd.isna(row.get('Flash Update')) else None
+                }
+                remote_inserts.append(remote_data)
+            
+            if remote_inserts:
+                 print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
+                 stmt = insert(RemoteService).values(remote_inserts)
+                 stmt = stmt.on_conflict_do_update(
+                     index_elements=['serial_number'],
+                     set_=dict(
+                         flash_update=stmt.excluded.flash_update
+                     )
                  )
-             )
-             await session.execute(stmt)
-             remote_service_processed = len(remote_inserts)
+                 await session.execute(stmt)
+                 remote_service_processed = len(remote_inserts)
 
-    except ValueError:
-        print("Remote Service sheet not found.")
     except Exception as e:
         print(f"Error processing Remote Service: {e}")
 

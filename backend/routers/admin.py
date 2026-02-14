@@ -65,6 +65,52 @@ async def list_users(db: Session = Depends(get_db)):
     result = await db.execute(stmt)
     return result.scalars().all()
 
+class UserUpdate(BaseModel):
+    email: str = None
+    full_name: str = None
+    password: str = None
+    role: str = None
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Optional: Prevent deleting self?
+    # current_admin = ... (context issue, maybe skip for now or handle in frontend)
+
+    await db.delete(user)
+    await db.commit()
+    return {"message": "User deleted"}
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
+    db_user = await db.get(User, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user_update.email:
+        # Check uniqueness if email changes
+        if user_update.email != db_user.email:
+            existing = await db.execute(select(User).where(User.email == user_update.email))
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Email already registered")
+        db_user.email = user_update.email
+    
+    if user_update.full_name:
+        db_user.full_name = user_update.full_name
+    
+    if user_update.role:
+        db_user.role = user_update.role
+
+    if user_update.password:
+        db_user.password_hash = get_password_hash(user_update.password)
+
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
 @router.get("/stats", response_model=StatsResponse)
 async def get_system_stats(db: Session = Depends(get_db)):
     # Total Machines
