@@ -104,10 +104,18 @@ async def generate_interventions(session: AsyncSession):
         if desc:
             formatted_desc += f" - {desc}"
 
+        # Determine Priority based on Service Letter Type
+        # User feedback: "Priority" and "Safety" are mandatory -> Red (Critical)
+        priority = 'LOW'
+        if ps_type:
+            ps_type_lower = ps_type.lower()
+            if 'safety' in ps_type_lower or 'priority' in ps_type_lower:
+                priority = 'HIGH'
+
         interventions_to_add.append(Intervention(
             machine_id=mach_id,
             type='SUIVI_PS',
-            priority='LOW',
+            priority=priority,
             status='PENDING',
             description=formatted_desc
         ))
