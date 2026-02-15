@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FilterProvider } from '@/contexts/FilterContext';
 import { useFilteredMachines } from '@/lib/useFilteredMachines';
+import { Machine } from '@/lib/types';
+import { fetchMachines } from '@/lib/api';
 import Map from '@/components/ui/Map';
 import GlobalSearch from '@/components/GlobalSearch';
 import { MessageSquare, Trash2, Send, MapPin, Filter, Search, Settings, LogOut } from 'lucide-react';
