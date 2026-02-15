@@ -1,44 +1,51 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { FilterProvider } from '@/contexts/FilterContext';
+import { useFilteredMachines } from '@/lib/useFilteredMachines';
 import Map from '@/components/ui/Map';
 import GlobalSearch from '@/components/GlobalSearch';
-import { Machine } from '@/lib/types';
-import { fetchMachines } from '@/lib/api';
-import { Search, MessageSquare, MapPin, Settings, LogOut, Send, Trash2 } from 'lucide-react';
+import { MessageSquare, Trash2, Send, MapPin, Filter, Search, Settings, LogOut } from 'lucide-react';
 
-export default function Dashboard() {
+function DashboardContent() {
     const router = useRouter();
     const [machines, setMachines] = useState<Machine[]>([]);
     const [loading, setLoading] = useState(true);
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([
-        { role: 'assistant', text: 'Bonjour ! Je suis votre assistant de tournée. Où devez-vous intervenir aujourd\'hui ? (ex: "Client GCO" ou "Dakar")' }
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [messages, setMessages] = useState<
+        { role: 'user' | 'assistant'; text: string }[]
+    >([
+        {
+            role: 'assistant',
+            text: `Bonjour ! Je suis votre assistant de tournée. Où devez-vous intervenir aujourd'hui ? (ex: "Client GCO" ou "Dakar")`,
+        },
     ]);
+
     const [input, setInput] = useState('');
     const [user, setUser] = useState<{ name: string, email: string, role?: string } | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const scrollToBottom = () => {
-        // block: 'nearest' ensures we don't scroll the parent containers
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    };
-
-    useEffect(() => {
-        const timeoutId = setTimeout(() => scrollToBottom(), 100); // Small delay to ensure render
-        return () => clearTimeout(timeoutId);
-    }, [messages]);
+    // Use filtered machines hook
+    const filteredMachines = useFilteredMachines(machines);
 
     // Map State
     const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
     const [mapZoom, setMapZoom] = useState<number | undefined>(undefined);
 
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => scrollToBottom(), 100);
+        return () => clearTimeout(timeoutId);
+    }, [messages]);
+
     const handleLocate = (lat: number, lng: number) => {
         setMapCenter([lat, lng]);
-        setMapZoom(12); // Zoom in when locating
+        setMapZoom(12);
     };
 
     const handleSearchClick = () => {
@@ -73,12 +80,11 @@ export default function Dashboard() {
                 setLoading(false);
             }
         }
-        if (user) { // Only load data if user is authenticated
+        if (user) {
             loadData();
         }
     }, [user]);
 
-    // Show loading state while checking user
     if (!user) {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-100">
@@ -112,7 +118,6 @@ export default function Dashboard() {
         setInput('');
 
         try {
-            // Call API with search term
             const results = await fetchMachines(userText);
             setMachines(results);
 
@@ -125,7 +130,7 @@ export default function Dashboard() {
 
             if (count > 0) {
                 if (criticalMachines.length > 0) {
-                    responseText += `\n\n🔴 ${criticalMachines.length} ACTION(S) REQUISE(S) :`;
+                    responseText += `\\n\\n🔴 ${criticalMachines.length} ACTION(S) REQUISE(S) :`;
                     criticalMachines.slice(0, 5).forEach(m => {
                         const interventions = m.pendingInterventions
                             .filter(i => i.priority === 'HIGH' || i.status === 'PENDING')
@@ -134,17 +139,17 @@ export default function Dashboard() {
                                 return desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
                             })
                             .join(', ');
-                        responseText += `\n- ${m.serialNumber} : ${interventions}`;
+                        responseText += `\\n- ${m.serialNumber} : ${interventions}`;
                     });
-                    if (criticalMachines.length > 5) responseText += `\n...et ${criticalMachines.length - 5} autres.`;
+                    if (criticalMachines.length > 5) responseText += `\\n...et ${criticalMachines.length - 5} autres.`;
                 }
 
-                if (maintenanceCount > 0) responseText += `\n\n🟠 ${maintenanceCount} Maintenance(s) Prévue(s)`;
-                if (operationalCount > 0) responseText += `\n🟢 ${operationalCount} Opérationnelle(s)`;
+                if (maintenanceCount > 0) responseText += `\\n\\n🟠 ${maintenanceCount} Maintenance(s) Prévue(s)`;
+                if (operationalCount > 0) responseText += `\\n🟢 ${operationalCount} Opérationnelle(s)`;
 
                 const noLocation = results.filter(m => m.location.lat === 0 && m.location.lng === 0).length;
                 if (noLocation > 0) {
-                    responseText += `\n⚠️ ${noLocation} machine(s) sans position GPS.`;
+                    responseText += `\\n⚠️ ${noLocation} machine(s) sans position GPS.`;
                 }
             } else {
                 responseText += " Aucune correspondance.";
@@ -157,9 +162,6 @@ export default function Dashboard() {
             setMessages(prev => [...prev, { role: 'assistant', text: "Erreur lors de la recherche." }]);
         }
     };
-
-    // User check handled at top with loader
-    // if (!user) return null;
 
     const handleReset = async () => {
         setLoading(true);
@@ -174,6 +176,9 @@ export default function Dashboard() {
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
+            {/* Filter Drawer */}
+            {/* <FilterDrawer machines={machines} isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} /> */}
+
             {/* Sidebar Navigation */}
             <aside className="w-64 bg-cat-black text-white flex flex-col shadow-2xl z-20">
                 <div className="p-6 border-b border-gray-800">
@@ -183,6 +188,7 @@ export default function Dashboard() {
 
                 <nav className="flex-1 p-4 space-y-2">
                     <NavItem icon={<MapPin size={20} />} label="Carte Globale" active onClick={handleReset} />
+                    <NavItem icon={<Filter size={20} />} label="Filtres Avancés" onClick={() => setIsFilterOpen(!isFilterOpen)} />
                     <NavItem icon={<Search size={20} />} label="Recherche Avancée" onClick={handleSearchClick} />
                     {user?.role === 'admin' && (
                         <NavItem
@@ -211,12 +217,10 @@ export default function Dashboard() {
                     </button>
                 </div>
             </aside>
-            {/* ... rest of existing code ... */}
-
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
-                {/* Header - could be breadcrumbs or global actions */}
+                {/* Header */}
                 <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm z-10 justify-between shrink-0">
                     <h2 className="font-bold text-gray-800">Tableau de Bord - Optimisation</h2>
                     <div className="flex gap-2">
@@ -227,7 +231,7 @@ export default function Dashboard() {
                 <div className="flex-1 flex relative min-h-0 overflow-hidden">
                     {/* Map Area */}
                     <div className="flex-1 relative bg-gray-200 min-h-0 min-w-0">
-                        <Map machines={machines} center={mapCenter} zoom={mapZoom} />
+                        <Map machines={filteredMachines} center={mapCenter} zoom={mapZoom} />
 
                         {/* Global Search Overlay */}
                         <div className="absolute top-4 left-16 z-[1000]">
@@ -269,7 +273,6 @@ export default function Dashboard() {
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />
-
                         </div>
 
                         <div className="shrink-0 p-4 bg-white border-t border-gray-200">
@@ -307,4 +310,13 @@ function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNo
             <span className="text-sm">{label}</span>
         </button>
     )
+}
+
+// Main export with FilterProvider wrapper
+export default function Dashboard() {
+    return (
+        <FilterProvider>
+            <DashboardContent />
+        </FilterProvider>
+    );
 }
