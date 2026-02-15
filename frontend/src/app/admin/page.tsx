@@ -20,7 +20,7 @@ interface Stats {
 }
 
 export default function AdminPage() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'data'>('users');
     const [users, setUsers] = useState<User[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
@@ -80,7 +80,7 @@ export default function AdminPage() {
             const method = editingUser ? 'PUT' : 'POST';
 
             // For update, exclude empty password if not changing it
-            const body: any = { ...newUser, role: 'user' };
+            const body: Partial<typeof newUser> & { role: string } = { ...newUser, role: 'user' };
             if (editingUser && !newUser.password) {
                 delete body.password;
             }
@@ -103,8 +103,8 @@ export default function AdminPage() {
             setNewUser({ email: '', full_name: '', password: '' });
             setEditingUser(null);
             fetchUsers();
-        } catch (err: any) {
-            setMessage(`Erreur: ${err.message}`);
+        } catch (err: unknown) {
+            setMessage(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
         } finally {
             setLoading(false);
         }
@@ -171,8 +171,8 @@ export default function AdminPage() {
 
             setMessage('Fichier uploadé et traité avec succès !');
             fetchStats(); // Refresh stats
-        } catch (error: any) {
-            setMessage(`Erreur: ${error.message}`);
+        } catch (error: unknown) {
+            setMessage(`Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         } finally {
             setLoading(false);
         }

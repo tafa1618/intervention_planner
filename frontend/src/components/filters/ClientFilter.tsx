@@ -53,7 +53,7 @@ export default function ClientFilter({ machines }: ClientFilterProps) {
                     placeholder="Rechercher un client..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cat-yellow"
+                    className="w-full pl-9 pr-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cat-yellow"
                 />
             </div>
 

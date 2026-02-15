@@ -41,8 +41,8 @@ export default function LoginPage() {
             // Redirect based on role? For now just dashboard, but admin might want /admin
             router.push('/dashboard');
 
-        } catch (err: any) {
-            setError(err.message || 'Impossible de se connecter au serveur');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Impossible de se connecter au serveur');
             setLoading(false); // Only stop loading on error (on success we redirect)
         }
     };

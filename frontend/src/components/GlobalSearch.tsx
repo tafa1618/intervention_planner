@@ -33,7 +33,7 @@ export default function GlobalSearch({ onLocate }: GlobalSearchProps) {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const StatusBadge = ({ label, status, color }: { label: string, status: any, color: string }) => {
+    const StatusBadge = ({ label, status, color }: { label: string, status: boolean | string | number | null | undefined, color: string }) => {
         if (!status) return <span className="text-xs text-gray-300 ml-1 opacity-50">{label}</span>;
 
         let displayColor = 'text-gray-500';

@@ -7,11 +7,6 @@ import { Machine } from '@/lib/types';
 import L from 'leaflet';
 import MapController from './MapController';
 
-// Fix for default marker icon in Next.js/Webpack
-const iconUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png';
-const iconRetinaUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png';
-const shadowUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png';
-
 const createIcon = (color: string) => L.divIcon({
     className: 'custom-icon',
     html: `<div style="background-color: ${color}; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,

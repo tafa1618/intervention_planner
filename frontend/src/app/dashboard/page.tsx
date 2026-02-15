@@ -8,12 +8,12 @@ import { Machine } from '@/lib/types';
 import { fetchMachines } from '@/lib/api';
 import Map from '@/components/ui/Map';
 import GlobalSearch from '@/components/GlobalSearch';
+import FilterDrawer from '@/components/FilterDrawer';
 import { MessageSquare, Trash2, Send, MapPin, Filter, Search, Settings, LogOut } from 'lucide-react';
 
 function DashboardContent() {
     const router = useRouter();
     const [machines, setMachines] = useState<Machine[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [messages, setMessages] = useState<
         { role: 'user' | 'assistant'; text: string }[]
@@ -69,7 +69,7 @@ function DashboardContent() {
             console.error("Auth Error:", e);
             router.push('/login');
         }
-    }, [router]);
+    }, []);
 
     useEffect(() => {
         async function loadData() {
@@ -78,8 +78,6 @@ function DashboardContent() {
                 setMachines(data);
             } catch (error) {
                 console.error("Failed to load machines", error);
-            } finally {
-                setLoading(false);
             }
         }
         if (user) {
@@ -100,14 +98,11 @@ function DashboardContent() {
 
     const handleClearChat = async () => {
         setMessages([{ role: 'assistant', text: 'Historique effacé. Carte réinitialisée.' }]);
-        setLoading(true);
         try {
             const data = await fetchMachines();
             setMachines(data);
         } catch (error) {
             console.error("Failed to reset map", error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -166,20 +161,19 @@ function DashboardContent() {
     };
 
     const handleReset = async () => {
-        setLoading(true);
         try {
             const data = await fetchMachines();
             setMachines(data);
             setMessages(prev => [...prev, { role: 'assistant', text: "Affichage de la vue globale (toutes les machines)." }]);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error("Failed to reset map", error);
         }
     };
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
             {/* Filter Drawer */}
-            {/* <FilterDrawer machines={machines} isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} /> */}
+            <FilterDrawer machines={machines} isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} />
 
             {/* Sidebar Navigation */}
             <aside className="w-64 bg-cat-black text-white flex flex-col shadow-2xl z-20">
