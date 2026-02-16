@@ -81,18 +81,27 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
         lat = row.get('LATITUDE')
         lon = row.get('LONGITUDE')
         
-        location_wkt = None
+        # location_wkt = None
+        # valid_coords = False
+        # if not pd.isna(lat) and not pd.isna(lon):
+        #     try:
+        #         lat = float(lat)
+        #         lon = float(lon)
+        #         if -90 <= lat <= 90 and -180 <= lon <= 180:
+        #             location_wkt = f"SRID=4326;POINT({lon} {lat})"
+        #             valid_coords = True
+        #     except:
+        #         pass
         valid_coords = False
         if not pd.isna(lat) and not pd.isna(lon):
             try:
                 lat = float(lat)
                 lon = float(lon)
                 if -90 <= lat <= 90 and -180 <= lon <= 180:
-                    location_wkt = f"SRID=4326;POINT({lon} {lat})"
                     valid_coords = True
             except:
                 pass
-        
+
         machine_data = {
             "serial_number": serial,
             "make": row.get('Marque'),
@@ -103,7 +112,7 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
             "status": row.get("Dernier statut matériel remonté"),
             "latitude": lat if valid_coords else None,
             "longitude": lon if valid_coords else None,
-            "location": location_wkt, 
+            #"location": location_wkt, 
             "client_id": client_db_id
         }
         
@@ -128,7 +137,7 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
                         status=stmt.excluded.status,
                         latitude=stmt.excluded.latitude,
                         longitude=stmt.excluded.longitude,
-                        location=stmt.excluded.location,
+                        #location=stmt.excluded.location,
                         client_id=stmt.excluded.client_id
                     )
                  )
