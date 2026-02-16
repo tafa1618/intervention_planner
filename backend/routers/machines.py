@@ -167,7 +167,9 @@ async def get_machines(
         selectinload(Machine.client),
         selectinload(Machine.interventions),
         selectinload(Machine.suivi_ps),
-        selectinload(Machine.remote_service)
+        selectinload(Machine.remote_service),
+        selectinload(Machine.cvaf),
+        selectinload(Machine.inspection_rate)
     )
     
     if serialNumber:
@@ -195,35 +197,81 @@ async def get_machines(
         # Colors: Green (operational), Orange (maintenance), Red (critical)
         
         status = 'operational'
+        virtual_interventions = []
         
         # 1. Check for Critical (RED)
         # - High priority pending interventions
-        # - Specific urgent statuses in Excel
         has_urgent_intervention = any(i.priority == 'HIGH' for i in m.interventions if i.status == 'PENDING')
-        excel_status = str(m.status).lower() if m.status else ""
-        is_urgent_excel = any(term in excel_status for term in ["défaut", "urgent", "critique", "critical", "breakdown"])
         
-        if has_urgent_intervention or is_urgent_excel:
+        # - Specific urgent statuses in Excel
+        excel_status_raw = str(m.status).lower() if m.status else ""
+        is_urgent_excel = any(term in excel_status_raw for term in ["défaut", "urgent", "critique", "critical", "breakdown"])
+        
+        if is_urgent_excel:
+            virtual_interventions.append({
+                "id": -1, "type": "ALERTE", "priority": "HIGH", "status": "PENDING", 
+                "description": f"Statut Excel: {m.status}", "date_created": m.last_reported_time
+            })
+            status = 'critical'
+        elif has_urgent_intervention:
             status = 'critical'
         
-        # 2. Check for Maintenance (ORANGE) if not already critical
-        elif status == 'operational':
-            # - No inspection recently
-            is_not_inspected = m.psi_status == 'Non Inspecté'
-            
-            # - Active campaigns (Suivi PS) - we need to load this relationship too
-            # (Adding selectinload for suivi_ps)
-            has_active_campaigns = len(m.suivi_ps) > 0 if hasattr(m, 'suivi_ps') and m.suivi_ps else False
-            
-            # - Flash Update required (Remote Service)
-            needs_flash = m.remote_service.flash_update == '1' if hasattr(m, 'remote_service') and m.remote_service else False
-            
-            # - Medium priority interventions
-            has_medium_intervention = any(i.priority == 'MEDIUM' for i in m.interventions if i.status == 'PENDING')
-            
-            if is_not_inspected or has_active_campaigns or needs_flash or has_medium_intervention:
-                status = 'maintenance'
+        # 2. Check for Maintenance (ORANGE) and add program details
         
+        # - Inspection (PSI)
+        if m.psi_status == 'Non Inspecté':
+             virtual_interventions.append({
+                "id": -2, "type": "INSPECTION", "priority": "MEDIUM", "status": "PENDING",
+                "description": "Machine non inspectée (PSI)", "date_created": None
+            })
+             if status == 'operational': status = 'maintenance'
+        elif m.last_visit:
+             # Just info if already inspected? Maybe skip from "interventions" but show in details
+             pass
+
+        # - CVAF Status
+        if m.cvaf:
+            # If inspection score is low or near end date?
+            # For now just show type as info if it's there
+            virtual_interventions.append({
+                "id": -3, "type": "CONTRAT CVA", "priority": "LOW", "status": "PENDING",
+                "description": f"Type: {m.cvaf.cva_type} (Fin: {m.cvaf.end_date or 'N/A'})", "date_created": None
+            })
+
+        # - Active campaigns (Suivi PS)
+        if m.suivi_ps:
+            for i, ps in enumerate(m.suivi_ps):
+                virtual_interventions.append({
+                    "id": -100 - i, "type": "CAMPAGNE PS", "priority": "MEDIUM", "status": "PENDING",
+                    "description": f"{ps.ps_type}: {ps.description} (Ref: {ps.reference_number})", "date_created": ps.date
+                })
+                if status == 'operational': status = 'maintenance'
+        
+        # - Flash Update required (Remote Service)
+        if m.remote_service and m.remote_service.flash_update == '1':
+            virtual_interventions.append({
+                "id": -4, "type": "REMOTE SERVICE", "priority": "MEDIUM", "status": "PENDING",
+                "description": "Mise à jour Flash requise", "date_created": None
+            })
+            if status == 'operational': status = 'maintenance'
+            
+        # - Medium priority interventions
+        has_medium_intervention = any(i.priority == 'MEDIUM' for i in m.interventions if i.status == 'PENDING')
+        if has_medium_intervention and status == 'operational':
+             status = 'maintenance'
+        
+        # Combined Interventions (DB + Virtual)
+        all_interventions = [
+            InterventionDTO(
+                id=i.id,
+                type=i.type,
+                priority=i.priority,
+                status=i.status,
+                description=i.description,
+                date_created=i.date_created
+            ) for i in m.interventions if i.status == 'PENDING'
+        ] + [InterventionDTO(**vi) for vi in virtual_interventions]
+
         # Location fallback
         lat = m.latitude if m.latitude else 0.0
         lng = m.longitude if m.longitude else 0.0
@@ -238,16 +286,7 @@ async def get_machines(
             client=m.client.name if m.client else "Unknown Client",
             location=LocationDTO(lat=lat, lng=lng, address=address),
             status=status,
-            pendingInterventions=[
-                InterventionDTO(
-                    id=i.id,
-                    type=i.type,
-                    priority=i.priority,
-                    status=i.status,
-                    description=i.description,
-                    date_created=i.date_created
-                ) for i in m.interventions if i.status == 'PENDING'
-            ]
+            pendingInterventions=all_interventions
         )
         response.append(machine_dto)
         

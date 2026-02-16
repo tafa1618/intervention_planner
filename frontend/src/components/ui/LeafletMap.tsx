@@ -61,13 +61,26 @@ const LeafletMap = ({ machines, center = [14.4974, -14.4524], zoom = 7 }: MapPro
 
                             {machine.pendingInterventions.length > 0 && (
                                 <div className="mt-3">
-                                    <h4 className="text-xs font-bold uppercase text-gray-400 mb-1">Interventions</h4>
-                                    <ul className="space-y-1">
-                                        {machine.pendingInterventions.map(i => (
-                                            <li key={i.id} className="text-xs bg-yellow-50 p-1 rounded border border-yellow-200 text-cat-black">
-                                                <span className="font-bold">{i.type}</span>: {i.description}
-                                            </li>
-                                        ))}
+                                    <h4 className="text-[10px] font-bold uppercase text-gray-400 mb-1 border-b pb-1">Détails Programme</h4>
+                                    <ul className="space-y-1.5 mt-2">
+                                        {machine.pendingInterventions.map(i => {
+                                            const isVirtual = i.id < 0;
+                                            const bgColor = i.type === 'ALERTE' ? 'bg-red-50 border-red-200 text-red-700' :
+                                                i.type === 'CAMPAGNE PS' ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                                                    i.type === 'INSPECTION' ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                                                        i.type === 'CONTRAT CVA' ? 'bg-green-50 border-green-200 text-green-700' :
+                                                            'bg-yellow-50 border-yellow-200 text-cat-black';
+
+                                            return (
+                                                <li key={i.id} className={`text-[11px] p-1.5 rounded border ${bgColor} leading-tight`}>
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="font-bold mr-1">{i.type}</span>
+                                                        {i.priority === 'HIGH' && <span className="text-[9px] bg-red-600 text-white px-1 rounded">!</span>}
+                                                    </div>
+                                                    <div className="mt-0.5 opacity-90">{i.description}</div>
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             )}
