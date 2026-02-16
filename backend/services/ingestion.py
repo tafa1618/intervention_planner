@@ -5,7 +5,7 @@ import math
 from sqlalchemy import select, update, delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Machine, Client
+from models import Machine, Client, RemoteService, CVAF, SuiviPS, InspectionRate
 
 async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     if not os.path.exists(file_path):
@@ -154,8 +154,6 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     try:
         cvaf_df = pd.read_excel(file_path, sheet_name='CVAF')
         print(f"Found CVAF sheet with {len(cvaf_df)} rows.")
-        
-        from models import CVAF
 
         cvaf_inserts = []
         for _, row in cvaf_df.iterrows():
@@ -278,8 +276,6 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     # Process Suivi_PS
     suivi_ps_processed = 0
     try:
-        from models import SuiviPS
-        
         suivi_df = pd.read_excel(file_path, sheet_name='Suivi_PS')
         print(f"Found Suivi_PS sheet with {len(suivi_df)} rows.")
         
@@ -333,7 +329,6 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
     # Process Inspection Rate
     inspection_processed = 0
     try:
-        from models import InspectionRate
         from sqlalchemy import update
         
         insp_df = pd.read_excel(file_path, sheet_name='Inspection Rate')
@@ -489,7 +484,6 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
              if remote_inserts:
                  print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
                  stmt = insert(RemoteService).values(remote_inserts)
-                 from models import RemoteService as RemoteServiceModel
                  stmt = stmt.on_conflict_do_update(
                      index_elements=['serial_number'],
                      set_=dict(
