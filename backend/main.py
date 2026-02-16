@@ -6,7 +6,7 @@ from database import get_db, AsyncSessionLocal
 from services.ingestion import ingest_programmes_data
 from routers import interventions, machines, auth, admin
 from models import User
-from core.security import get_password_hash
+from routers.auth import get_password_hash
 import os
 
 app = FastAPI()
