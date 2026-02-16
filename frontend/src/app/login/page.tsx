@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,7 +23,7 @@ export default function LoginPage() {
             formData.append('username', email);
             formData.append('password', password);
 
-            const res = await fetch('http://localhost:8001/auth/token', {
+            const res = await fetch(`${API_URL}/auth/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData,

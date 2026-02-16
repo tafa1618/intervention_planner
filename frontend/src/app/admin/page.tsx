@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Database, Upload, LogOut, ArrowLeft, Plus, Trash2, Pencil } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
 interface User {
     id: number;
     email: string;
@@ -52,7 +54,7 @@ export default function AdminPage() {
 
     const fetchUsers = async () => {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8001/admin/users', {
+        const res = await fetch(`${API_URL}/admin/users`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) setUsers(await res.json());
@@ -60,7 +62,7 @@ export default function AdminPage() {
 
     const fetchStats = async () => {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8001/admin/stats', {
+        const res = await fetch(`${API_URL}/admin/stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) setStats(await res.json());
@@ -74,8 +76,8 @@ export default function AdminPage() {
         try {
             const token = localStorage.getItem('token');
             const url = editingUser
-                ? `http://localhost:8001/admin/users/${editingUser.id}`
-                : 'http://localhost:8001/admin/users';
+                ? `${API_URL}/admin/users/${editingUser.id}`
+                : `${API_URL}/admin/users`;
 
             const method = editingUser ? 'PUT' : 'POST';
 
@@ -115,7 +117,7 @@ export default function AdminPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:8001/admin/users/${userId}`, {
+            const res = await fetch(`${API_URL}/admin/users/${userId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -155,7 +157,7 @@ export default function AdminPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:8001/admin/upload', {
+            const res = await fetch(`${API_URL}/admin/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`

@@ -22,10 +22,8 @@ services:
     dockerfilePath: frontend/Dockerfile
     branch: main
     envVars:
-      # User must manually add NEXT_PUBLIC_API_URL in Render Dashboard
-      # pointing to the backend URL (e.g. https://intervention-planner-backend.onrender.com)
-      - key: PLACEHOLDER_VAR
-        value: "true"
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://intervention-planner.onrender.com"
 
 databases:
   - name: intervention-planner-db
