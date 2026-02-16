@@ -410,82 +410,92 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
 
     # Process Remote Service
     remote_service_processed = 0
-    try:
-        from models import RemoteService
-        
-        # Normalize sheet names for case-insensitive lookup
-        xl = pd.ExcelFile(file_path)
-        sheet_names = xl.sheet_names
-        
-        remote_df = None
-        # Try finding sheet by common names
-        remote_sheet_target = next((s for s in sheet_names if s.lower() in ['remote service', 'remote_service', 'suivi remote service']), None)
-        
-        if remote_sheet_target:
-            print(f"Detected Remote Service sheet: {remote_sheet_target}")
-            remote_df = pd.read_excel(file_path, sheet_name=remote_sheet_target)
-        else:
-            # Plan B: Try to detect by headers in OTHER sheets if not found by name
-            # (In case the user put it in a sheet with a different name)
-            for sheet in sheet_names:
+    # Normalize sheet names for case-insensitive lookup
+    xl = pd.ExcelFile(file_path)
+    sheet_names = xl.sheet_names
+    
+    remote_df = None
+    # Try finding sheet by common names
+    remote_sheet_target = next((s for s in sheet_names if s.lower() in ['remote service', 'remote_service', 'suivi remote service']), None)
+    
+    if remote_sheet_target:
+        print(f"Detected Remote Service sheet: {remote_sheet_target}")
+        remote_df = pd.read_excel(file_path, sheet_name=remote_sheet_target)
+    else:
+        # Plan B: Try to detect by headers in OTHER sheets if not found by name
+        for sheet in sheet_names:
+            try:
                 temp_df = pd.read_excel(file_path, sheet_name=sheet, nrows=5)
-                if any(col in temp_df.columns for col in ['Flash Update', 'Serial Number', 'Product Model']):
+                if any(col in temp_df.columns for col in ['Flash Update', 'Serial Number', 'Product Model', 'S/N']):
                     print(f"Detected Remote Service data in sheet: {sheet}")
                     remote_df = pd.read_excel(file_path, sheet_name=sheet)
                     break
+            except:
+                continue
 
-        if remote_df is not None:
-             # Refresh existing serials
-             result = await session.execute(select(Machine.serial_number))
-             existing_serials = set(result.scalars().all())
+    if remote_df is not None:
+         # 1. Flush any previous changes to ensure DB is up to date for lookups
+         await session.flush()
+         
+         # 2. Refresh existing serials
+         result = await session.execute(select(Machine.serial_number))
+         existing_serials = set(result.scalars().all())
 
-             remote_inserts = []
-             serials_processed = set()
-             
-             # Map potential S/N column names
-             sn_col = next((c for c in remote_df.columns if str(c).lower() in ['s/n', 'serial number', 'n° série']), None)
-             flash_col = next((c for c in remote_df.columns if str(c).lower() in ['flash update', 'flash_update']), None)
+         new_machine_stubs = []
+         remote_inserts = []
+         serials_processed_in_sheet = set()
+         
+         # Map potential S/N column names
+         sn_col = next((c for c in remote_df.columns if str(c).lower() in ['s/n', 'serial number', 'n° série']), None)
+         flash_col = next((c for c in remote_df.columns if str(c).lower() in ['flash update', 'flash_update']), None)
 
-             if sn_col:
-                 for _, row in remote_df.iterrows():
-                    serial = row.get(sn_col)
-                    if pd.isna(serial): continue
-                    serial = str(serial).strip()
-                    
-                    if serial in serials_processed: continue
-                    serials_processed.add(serial)
-
-                    # If machine doesn't exist, we might want to create a stub
-                    if serial not in existing_serials:
-                        new_machine = Machine(
-                            serial_number=serial,
-                            model=row.get('Product Model') if 'Product Model' in remote_df.columns else None,
-                        )
-                        session.add(new_machine)
-                        existing_serials.add(serial)
-
-                    remote_data = {
-                        "serial_number": serial,
-                        "flash_update": str(row.get(flash_col)) if flash_col and not pd.isna(row.get(flash_col)) else None
-                    }
-                    remote_inserts.append(remote_data)
+         if sn_col:
+             for _, row in remote_df.iterrows():
+                serial = row.get(sn_col)
+                if pd.isna(serial): continue
+                serial = str(serial).strip()
                 
-                 if remote_inserts:
-                     print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
-                     stmt = insert(RemoteService).values(remote_inserts)
-                     stmt = stmt.on_conflict_do_update(
-                         index_elements=['serial_number'],
-                         set_=dict(
-                             flash_update=stmt.excluded.flash_update
-                         )
-                     )
-                     await session.execute(stmt)
-                     remote_service_processed = len(remote_inserts)
-        else:
-            print("No Remote Service sheet or data detected.")
+                if serial in serials_processed_in_sheet: continue
+                serials_processed_in_sheet.add(serial)
 
-    except Exception as e:
-        print(f"Error processing Remote Service: {e}")
+                # If machine doesn't exist, prepare a stub
+                if serial not in existing_serials:
+                    new_machine_stubs.append({
+                        "serial_number": serial,
+                        "model": row.get('Product Model') if 'Product Model' in remote_df.columns else None,
+                    })
+                    existing_serials.add(serial)
+
+                # Prepare Remote Service record
+                remote_inserts.append({
+                    "serial_number": serial,
+                    "flash_update": str(row.get(flash_col)) if flash_col and not pd.isna(row.get(flash_col)) else None
+                })
+            
+             # 3. Bulk Insert Machine Stubs (on conflict do nothing)
+             if new_machine_stubs:
+                 print(f"Adding {len(new_machine_stubs)} machine stubs from Remote Service...")
+                 stmt_machines = insert(Machine).values(new_machine_stubs)
+                 stmt_machines = stmt_machines.on_conflict_do_nothing(index_elements=['serial_number'])
+                 await session.execute(stmt_machines)
+                 await session.flush() # Ensure machines exist before RemoteService refers to them
+
+             # 4. Bulk Insert/Update Remote Service Records
+             if remote_inserts:
+                 print(f"Upserting RemoteService for {len(remote_inserts)} machines...")
+                 stmt = insert(RemoteService).values(remote_inserts)
+                 from models import RemoteService as RemoteServiceModel
+                 stmt = stmt.on_conflict_do_update(
+                     index_elements=['serial_number'],
+                     set_=dict(
+                         flash_update=stmt.excluded.flash_update
+                     )
+                 )
+                 await session.execute(stmt)
+                 remote_service_processed = len(remote_inserts)
+    else:
+        print("No Remote Service sheet or data detected.")
+
 
     return {
         "clients": clients_processed, 
