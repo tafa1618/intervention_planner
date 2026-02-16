@@ -21,6 +21,7 @@ services:
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
     branch: main
+    buildCommand: echo "NEXT_PUBLIC_API_URL=https://intervention-planner.onrender.com" > frontend/.env.local
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: "https://intervention-planner.onrender.com"
