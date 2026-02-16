@@ -231,12 +231,28 @@ async def get_machines(
 
         # - CVAF Status
         if m.cvaf:
-            # If inspection score is low or near end date?
-            # For now just show type as info if it's there
+            # Format scores for display
+            sos = m.cvaf.sos_score if m.cvaf.sos_score is not None else "N/A"
+            insp = m.cvaf.inspection_score if m.cvaf.inspection_score is not None else "N/A"
+            
+            # Logic: If score is 0 or 1, it requires action (Maintenance)
+            is_urgent_score = False
+            try:
+                if str(sos) in ['0', '1', '0.0', '1.0'] or str(insp) in ['0', '1', '0.0', '1.0']:
+                    is_urgent_score = True
+            except:
+                pass
+
             virtual_interventions.append({
-                "id": -3, "type": "CONTRAT CVA", "priority": "LOW", "status": "PENDING",
-                "description": f"Type: {m.cvaf.cva_type} (Fin: {m.cvaf.end_date or 'N/A'})", "date_created": None
+                "id": -3, "type": "CONTRAT CVA", 
+                "priority": "MEDIUM" if is_urgent_score else "LOW", 
+                "status": "PENDING",
+                "description": f"Type: {m.cvaf.cva_type} | SOS: {sos} | Insp: {insp}", 
+                "date_created": None
             })
+            
+            if is_urgent_score and status == 'operational':
+                status = 'maintenance'
 
         # - Active campaigns (Suivi PS)
         if m.suivi_ps:
