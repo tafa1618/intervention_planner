@@ -245,14 +245,14 @@ async def get_machines(
 
             virtual_interventions.append({
                 "id": -3, "type": "CONTRAT CVA", 
-                "priority": "MEDIUM" if is_urgent_score else "LOW", 
+                "priority": "HIGH" if is_urgent_score else "LOW", 
                 "status": "PENDING",
                 "description": f"Type: {m.cvaf.cva_type} | SOS: {sos} | Insp: {insp}", 
                 "date_created": None
             })
             
-            if is_urgent_score and status == 'operational':
-                status = 'maintenance'
+            if is_urgent_score:
+                status = 'critical'
 
         # - Active campaigns (Suivi PS)
         if m.suivi_ps:
