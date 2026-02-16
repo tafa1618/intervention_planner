@@ -1,7 +1,7 @@
 
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, BigInteger
 from sqlalchemy.orm import relationship
-from geoalchemy2 import Geometry
+#from geoalchemy2 import Geometry
 from database import Base
 import datetime
 
@@ -33,7 +33,7 @@ class Machine(Base):
     # Location
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
-    location = Column(Geometry('POINT', srid=4326), nullable=True) # PostGIS column
+    #location = Column(Geometry('POINT', srid=4326), nullable=True) # PostGIS column
     
     # Fields from PSSR_Client sheet
     last_visit = Column(String, nullable=True)
