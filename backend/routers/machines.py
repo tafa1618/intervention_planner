@@ -1,3 +1,66 @@
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload
+from typing import List, Optional, Any
+from database import get_db
+from models import Machine, Client, Intervention, CVAF, InspectionRate, RemoteService, SuiviPS
+from pydantic import BaseModel
+
+router = APIRouter(
+    prefix="/machines",
+    tags=["machines"]
+)
+
+# Pydantic Models for Response
+class InterventionDTO(BaseModel):
+    id: int
+    type: str
+    priority: str
+    status: str
+    description: Optional[str] = None
+    date_created: Any # datetime
+
+    class Config:
+        from_attributes = True
+
+class LocationDTO(BaseModel):
+    lat: float
+    lng: float
+    address: Optional[str] = None
+
+class MachineDTO(BaseModel):
+    id: int
+    serialNumber: str
+    model: Optional[str] = None
+    client: str 
+    location: LocationDTO
+    status: str
+    pendingInterventions: List[InterventionDTO] = []
+    
+    class Config:
+        from_attributes = True
+
+class ProgramStatusDTO(BaseModel):
+    visionLink: bool
+    cvaf: Optional[str] = None # 'Active', 'Expired', etc.
+    inspection: Optional[str] = None # Date of last inspection
+    remoteService: Optional[str] = None # Flash update status
+    suiviPs: Optional[int] = 0 # Count of active campaigns
+
+class MachineContextDTO(BaseModel):
+    id: int
+    serialNumber: str
+    model: Optional[str] = None
+    client: str
+    location: Optional[LocationDTO] = None
+    status: str
+    programs: ProgramStatusDTO
+    
+    class Config:
+        from_attributes = True
+
 def calculate_machine_status_and_interventions(m: Machine):
     """
     Central logic to determine machine status and synthesize virtual interventions.
@@ -95,7 +158,7 @@ async def search_global_context(
     search_term = f"%{q}%"
     query = select(Machine).options(
         selectinload(Machine.client),
-        selectinload(Machine.interventions), # Added for status logic
+        selectinload(Machine.interventions),
         selectinload(Machine.cvaf),
         selectinload(Machine.inspection_rate),
         selectinload(Machine.remote_service),
@@ -121,7 +184,7 @@ async def search_global_context(
         remote_status = m.remote_service.flash_update if m.remote_service else None
         suivi_count = len(m.suivi_ps) if m.suivi_ps else 0
         
-        loc_dto = LocationDTO(lat=m.latitude, lng=m.longitude, address=m.client.name) if is_connected else None
+        loc_dto = LocationDTO(lat=m.latitude, lng=m.longitude, address=m.client.name if m.client else "") if is_connected else None
 
         dto = MachineContextDTO(
             id=m.id,
