@@ -235,13 +235,23 @@ async def get_machines(
             sos = m.cvaf.sos_score if m.cvaf.sos_score is not None else "N/A"
             insp = m.cvaf.inspection_score if m.cvaf.inspection_score is not None else "N/A"
             
-            # Logic: If score is 0 or 1, it requires action (Maintenance)
+            # Logic: If score is 0 or 1, or 0/1, it requires action (Critical)
             is_urgent_score = False
-            try:
-                if str(sos) in ['0', '1', '0.0', '1.0'] or str(insp) in ['0', '1', '0.0', '1.0']:
-                    is_urgent_score = True
-            except:
-                pass
+            def is_low_score(val):
+                if val is None: return False
+                s_val = str(val).strip().lower()
+                # Match "0", "1", "0.0", "1.0", "0/1"
+                if s_val in ['0', '1', '0.0', '1.0', '0/1']:
+                    return True
+                # Handle cases like "0 / 1"
+                if '/' in s_val:
+                    parts = [p.strip() for p in s_val.split('/')]
+                    if parts[0] == '0' and len(parts) > 1 and parts[1] != '0':
+                        return True
+                return False
+
+            if is_low_score(sos) or is_low_score(insp):
+                is_urgent_score = True
 
             virtual_interventions.append({
                 "id": -3, "type": "CONTRAT CVA", 
