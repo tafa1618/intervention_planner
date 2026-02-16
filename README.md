@@ -122,6 +122,58 @@ Backend (API) : FastAPI (Python)
 
 ---
 
+## 🗄️ Database Migrations
+
+### Local Development
+
+The project uses **Alembic** for database schema migrations. All migrations are in `backend/alembic/versions/`.
+
+**Create a new migration** (after modifying models.py):
+```bash
+cd backend
+alembic revision --autogenerate -m "description of changes"
+```
+
+**Apply migrations locally**:
+```bash
+alembic upgrade head
+```
+
+**Check current migration status**:
+```bash
+alembic current
+```
+
+### Render Deployment
+
+Migrations are **automatically applied** on every deployment:
+
+1. The `startup.sh` script runs `alembic upgrade head` before starting the server
+2. Check deployment logs in Render dashboard for migration output
+3. Verify migrations with: `GET /migrations/status`
+
+**Existing migrations** (9 total):
+- Initial tables (clients, machines)
+- CVAF table
+- SuiviPS, InspectionRate tables  
+- Intervention model
+- RemoteService table
+- User authentication table
+
+### Troubleshooting
+
+**Migration fails on Render**:
+- Check Render logs for specific error
+- Verify `DATABASE_URL` environment variable is set
+- Ensure PostGIS extension is enabled: `CREATE EXTENSION IF NOT EXISTS postgis;`
+
+**Check migration status**:
+```bash
+curl https://your-backend.onrender.com/migrations/status
+```
+
+---
+
 
 ## 📌 Règles de contribution
 
