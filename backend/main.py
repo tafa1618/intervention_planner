@@ -28,7 +28,7 @@ async def startup_event():
             admin_user = User(
                 email="admin@neemba.com",
                 full_name="Admin",
-                password_hash=get_password_hash("admin123!"),
+                password_hash=get_password_hash("admin123"),
                 role="admin",
                 is_active=True,
             )
