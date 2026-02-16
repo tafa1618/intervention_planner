@@ -41,7 +41,7 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
         
         client_inserts.append({
             "external_id": str(ext_id),
-            "name": name if not pd.isna(name) else "Unknown",
+            "name": str(name) if not pd.isna(name) else "Unknown",
             "account_number": str(acc_num) if not pd.isna(acc_num) else None
         })
     
@@ -102,14 +102,18 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
             except:
                 pass
 
+        def clean_str(val):
+            if pd.isna(val): return None
+            return str(val).strip()
+
         machine_data = {
             "serial_number": serial,
-            "make": row.get('Marque'),
-            "model": row.get('Modèle'),
-            "family": row.get('Famille de produits'),
+            "make": clean_str(row.get('Marque')),
+            "model": clean_str(row.get('Modèle')),
+            "family": clean_str(row.get('Famille de produits')),
             "service_meter": row.get("Compteur d'entretien (Heures)"),
             "last_reported_time": row.get("Heure du dernier signalement du dernier compteur d'entretien connu"), 
-            "status": row.get("Dernier statut matériel remonté"),
+            "status": clean_str(row.get("Dernier statut matériel remonté")),
             "latitude": lat if valid_coords else None,
             "longitude": lon if valid_coords else None,
             #"location": location_wkt, 
@@ -460,9 +464,10 @@ async def ingest_programmes_data(file_path: str, session: AsyncSession) -> dict:
 
                 # If machine doesn't exist, prepare a stub
                 if serial not in existing_serials:
+                    val_model = row.get('Product Model')
                     new_machine_stubs.append({
                         "serial_number": serial,
-                        "model": row.get('Product Model') if 'Product Model' in remote_df.columns else None,
+                        "model": str(val_model) if not pd.isna(val_model) else None,
                     })
                     existing_serials.add(serial)
 
