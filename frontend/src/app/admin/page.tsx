@@ -370,10 +370,10 @@ export default function AdminPage() {
                         {/* Upload Section (Placeholder for now, redirect logic or use existing component?) */}
                         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 text-center">
                             <Upload className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Mise à jour des données</h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Mise à jour universelle</h3>
                             <p className="text-gray-500 mb-6">
-                                Sélectionnez le fichier <strong>Programmes.xlsx</strong> pour mettre à jour la base de données.
-                                <br />Le traitement peut prendre quelques minutes.
+                                Sélectionnez votre fichier Excel (<strong>Programmes.xlsx</strong>).
+                                <br />Toutes les feuilles détectées (Machines, CVAF, Suivi PS, Inspection, Remote Service) seront traitées en une seule fois.
                             </p>
 
                             <div className="max-w-md mx-auto">

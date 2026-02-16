@@ -165,7 +165,9 @@ async def get_machines(
     # Use selectinload to eagerly fetch relationships properly in async
     query = select(Machine).options(
         selectinload(Machine.client),
-        selectinload(Machine.interventions)
+        selectinload(Machine.interventions),
+        selectinload(Machine.suivi_ps),
+        selectinload(Machine.remote_service)
     )
     
     if serialNumber:
@@ -189,16 +191,39 @@ async def get_machines(
     # Transform to DTO format expected by frontend
     response = []
     for m in machines:
-        # Determine status (mock logic based on fields or intervention count)
-        status = 'operational'
-        if m.psi_status == 'Non Inspecté':
-            status = 'maintenance'
+        # Determine REAL status based on data
+        # Colors: Green (operational), Orange (maintenance), Red (critical)
         
-        # Check if there are breakdown interventions? (e.g. SOS high priority)
-        has_urgent = any(i.priority == 'HIGH' for i in m.interventions)
-        if has_urgent:
-             status = 'critical' # visual indicator
-
+        status = 'operational'
+        
+        # 1. Check for Critical (RED)
+        # - High priority pending interventions
+        # - Specific urgent statuses in Excel
+        has_urgent_intervention = any(i.priority == 'HIGH' for i in m.interventions if i.status == 'PENDING')
+        excel_status = str(m.status).lower() if m.status else ""
+        is_urgent_excel = any(term in excel_status for term in ["défaut", "urgent", "critique", "critical", "breakdown"])
+        
+        if has_urgent_intervention or is_urgent_excel:
+            status = 'critical'
+        
+        # 2. Check for Maintenance (ORANGE) if not already critical
+        elif status == 'operational':
+            # - No inspection recently
+            is_not_inspected = m.psi_status == 'Non Inspecté'
+            
+            # - Active campaigns (Suivi PS) - we need to load this relationship too
+            # (Adding selectinload for suivi_ps)
+            has_active_campaigns = len(m.suivi_ps) > 0 if hasattr(m, 'suivi_ps') and m.suivi_ps else False
+            
+            # - Flash Update required (Remote Service)
+            needs_flash = m.remote_service.flash_update == '1' if hasattr(m, 'remote_service') and m.remote_service else False
+            
+            # - Medium priority interventions
+            has_medium_intervention = any(i.priority == 'MEDIUM' for i in m.interventions if i.status == 'PENDING')
+            
+            if is_not_inspected or has_active_campaigns or needs_flash or has_medium_intervention:
+                status = 'maintenance'
+        
         # Location fallback
         lat = m.latitude if m.latitude else 0.0
         lng = m.longitude if m.longitude else 0.0
