@@ -258,10 +258,9 @@ async def get_machines(
         if m.suivi_ps:
             for i, ps in enumerate(m.suivi_ps):
                 virtual_interventions.append({
-                    "id": -100 - i, "type": "CAMPAGNE PS", "priority": "MEDIUM", "status": "PENDING",
+                    "id": -100 - i, "type": "CAMPAGNE PS", "priority": "LOW", "status": "PENDING",
                     "description": f"{ps.ps_type}: {ps.description} (Ref: {ps.reference_number})", "date_created": ps.date
                 })
-                if status == 'operational': status = 'maintenance'
         
         # - Flash Update required (Remote Service)
         if m.remote_service and m.remote_service.flash_update == '1':
