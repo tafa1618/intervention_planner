@@ -37,3 +37,16 @@ export async function searchGlobalContext(query: string): Promise<MachineContext
         return [];
     }
 }
+
+export async function fetchClients(): Promise<ClientStats[]> {
+    try {
+        const res = await fetch(`${API_URL}/machines/clients`);
+        if (!res.ok) {
+            throw new Error('Failed to fetch clients');
+        }
+        return res.json();
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        return [];
+    }
+}

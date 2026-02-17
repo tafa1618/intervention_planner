@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { X, Filter } from 'lucide-react';
 import { useFilters } from '@/contexts/FilterContext';
+import StatusFilter from './filters/StatusFilter';
+import ClientFilter from './filters/ClientFilter';
 import { Machine } from '@/lib/types';
 import { fetchClients, ClientStats } from '@/lib/api';
 import { useEffect } from 'react';
