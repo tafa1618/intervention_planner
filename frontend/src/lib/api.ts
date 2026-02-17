@@ -1,6 +1,11 @@
 
 import { Machine, MachineContext } from './types';
 
+export interface ClientStats {
+    name: string;
+    count: number;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export async function fetchMachines(search?: string): Promise<Machine[]> {

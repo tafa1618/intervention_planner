@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional, Any
 from database import get_db
@@ -60,6 +60,10 @@ class MachineContextDTO(BaseModel):
     
     class Config:
         from_attributes = True
+
+class ClientStatsDTO(BaseModel):
+    name: str
+    count: int
 
 def calculate_machine_status_and_interventions(m: Machine):
     """
@@ -248,3 +252,17 @@ async def get_machines(
             pendingInterventions=interventions
         ))
     return response
+
+@router.get("/clients", response_model=List[ClientStatsDTO])
+async def get_all_clients(db: AsyncSession = Depends(get_db)):
+    """Returns a list of all unique clients with their machine counts."""
+    query = (
+        select(Client.name, func.count(Machine.id).label("count"))
+        .join(Machine, Machine.client_id == Client.id)
+        .group_by(Client.name)
+        .order_by(Client.name)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    
+    return [ClientStatsDTO(name=row[0], count=row[1]) for row in rows]

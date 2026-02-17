@@ -2,37 +2,24 @@
 
 import { useMemo, useState } from 'react';
 import { useFilters } from '@/contexts/FilterContext';
-import { Machine } from '@/lib/types';
 import { Search } from 'lucide-react';
+import { ClientStats } from '@/lib/api';
 
 interface ClientFilterProps {
-    machines: Machine[];
+    clients: ClientStats[];
 }
 
-export default function ClientFilter({ machines }: ClientFilterProps) {
+export default function ClientFilter({ clients }: ClientFilterProps) {
     const { filters, setFilters } = useFilters();
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Extract unique clients with counts
-    const clientList = useMemo(() => {
-        const clientCounts = machines.reduce((acc, machine) => {
-            const client = machine.client;
-            acc[client] = (acc[client] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        return Object.entries(clientCounts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [machines]);
-
     // Filter clients based on search
     const filteredClientList = useMemo(() => {
-        if (!searchTerm) return clientList;
-        return clientList.filter(client =>
+        if (!searchTerm) return clients;
+        return clients.filter(client =>
             client.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [clientList, searchTerm]);
+    }, [clients, searchTerm]);
 
     const toggleClient = (clientName: string) => {
         const newClients = filters.clients.includes(clientName)

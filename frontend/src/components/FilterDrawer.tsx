@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { X, Filter } from 'lucide-react';
 import { useFilters } from '@/contexts/FilterContext';
-import StatusFilter from './filters/StatusFilter';
-import ClientFilter from './filters/ClientFilter';
 import { Machine } from '@/lib/types';
+import { fetchClients, ClientStats } from '@/lib/api';
+import { useEffect } from 'react';
 
 interface FilterDrawerProps {
     machines: Machine[]; // All machines for extracting unique clients/regions
@@ -15,6 +15,17 @@ interface FilterDrawerProps {
 
 export default function FilterDrawer({ machines, isOpen, onClose }: FilterDrawerProps) {
     const { activeCount, resetFilters } = useFilters();
+    const [allClients, setAllClients] = useState<ClientStats[]>([]);
+
+    useEffect(() => {
+        async function loadClients() {
+            const data = await fetchClients();
+            setAllClients(data);
+        }
+        if (isOpen) {
+            loadClients();
+        }
+    }, [isOpen]);
 
     return (
         <>
@@ -50,10 +61,9 @@ export default function FilterDrawer({ machines, isOpen, onClose }: FilterDrawer
                     </button>
                 </div>
 
-                {/* Filters Content */}
                 <div className="p-4 space-y-6 overflow-y-auto h-[calc(100%-140px)]">
                     <StatusFilter />
-                    <ClientFilter machines={machines} />
+                    <ClientFilter clients={allClients} />
                 </div>
 
                 {/* Footer */}
